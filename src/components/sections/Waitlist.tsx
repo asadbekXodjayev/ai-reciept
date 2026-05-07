@@ -37,7 +37,7 @@ export function WaitlistSection() {
   };
 
   return (
-    <section className="py-20 sm:py-28 bg-gradient-to-b from-white to-[#FFFBF0]">
+    <section id="waitlist" className="py-20 sm:py-28 bg-gradient-to-b from-white to-[#FFFBF0]">
       <Container>
         <motion.div
           initial="hidden"

@@ -65,12 +65,14 @@ export function Navbar() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3, duration: 0.5 }}
           >
-            <Button
-              className="bg-[#75070C] hover:bg-[#5a0509] text-white"
-              size="sm"
-            >
-              {HERO.cta}
-            </Button>
+            <a href="#waitlist">
+              <Button
+                className="bg-[#75070C] hover:bg-[#5a0509] text-white"
+                size="sm"
+              >
+                {HERO.cta}
+              </Button>
+            </a>
           </motion.div>
         </div>
       </div>

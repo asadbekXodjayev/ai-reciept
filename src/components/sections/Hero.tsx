@@ -94,12 +94,14 @@ export function HeroSection() {
 
           {/* CTA Button */}
           <motion.div variants={fadeInUp}>
-            <Button
-              size="lg"
-              className="bg-[#75070C] hover:bg-[#5a0509] text-white px-8 font-semibold"
-            >
-              {HERO.cta}
-            </Button>
+            <a href="#waitlist">
+              <Button
+                size="lg"
+                className="bg-[#75070C] hover:bg-[#5a0509] text-white px-8 font-semibold"
+              >
+                {HERO.cta}
+              </Button>
+            </a>
           </motion.div>
         </motion.div>
       </Container>
