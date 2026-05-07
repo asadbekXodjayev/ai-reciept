@@ -6,6 +6,7 @@ import { fadeInUp, staggerContainer } from '@/lib/animations';
 import { Container } from '@/components/shared/Container';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 interface SavedRecipe {
     id: string;
@@ -21,7 +22,6 @@ interface SavedRecipe {
     isPredefined: boolean;
 }
 
-// Helper to load from localStorage
 function loadSavedRecipes(): SavedRecipe[] {
     if (typeof window !== 'undefined') {
         const saved = localStorage.getItem('savedRecipes');
@@ -37,6 +37,7 @@ function loadSavedRecipes(): SavedRecipe[] {
 }
 
 export default function SavedRecipesPage() {
+    const { t, lang } = useTranslation();
     const [savedRecipes, setSavedRecipes] = useState<SavedRecipe[]>(loadSavedRecipes);
 
     const deleteRecipe = (id: string) => {
@@ -69,20 +70,19 @@ export default function SavedRecipesPage() {
                 <Container>
                     <div className="flex items-center justify-between h-20">
                         <Link href="/" className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4F6815] to-[#75070C] flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">R</span>
-                            </div>
-                            <span className="font-bold text-2xl text-[#4F6815]">RecipeAI</span>
+                            <span className="font-bold text-2xl text-[#4F6815]">
+                                Recipe<span className="text-[#75070C]">AI</span>
+                            </span>
                         </Link>
                         <div className="flex items-center gap-4">
                             <Link href="/predefined">
                                 <Button variant="outline" className="border-[#4F6815] text-[#4F6815]">
-                                    Browse Recipes
+                                    {t('navBrowseRecipes')}
                                 </Button>
                             </Link>
                             <Link href="/">
                                 <Button className="bg-[#75070C] hover:bg-[#5a0509] text-white">
-                                    Generate New
+                                    {t('navGenerateNew')}
                                 </Button>
                             </Link>
                         </div>
@@ -98,11 +98,15 @@ export default function SavedRecipesPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-center"
                     >
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#75070C]/10 text-[#75070C] text-sm font-medium mb-4">
+                            <span>📖</span>
+                            <span>{t('savedTitle')}</span>
+                        </div>
                         <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-4">
-                            Your Cookbook
+                            {t('savedTitle')}
                         </h1>
                         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                            All your saved recipes in one beautiful place
+                            {t('savedSubtitle')}
                         </p>
                     </motion.div>
                 </Container>
@@ -119,20 +123,20 @@ export default function SavedRecipesPage() {
                         >
                             <div className="text-6xl mb-6">📖</div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                                No saved recipes yet
+                                {t('savedNoRecipes')}
                             </h2>
                             <p className="text-gray-600 mb-8">
-                                Start exploring and save your favorite recipes!
+                                {t('savedStartExploring')}
                             </p>
                             <div className="flex gap-4 justify-center">
                                 <Link href="/">
                                     <Button className="bg-[#75070C] hover:bg-[#5a0509] text-white text-lg px-8 py-3">
-                                        Generate Recipes
+                                        {t('demoGenerate')}
                                     </Button>
                                 </Link>
                                 <Link href="/predefined">
                                     <Button variant="outline" className="border-[#4F6815] text-[#4F6815] text-lg px-8 py-3">
-                                        Browse Library
+                                        {t('navBrowseRecipes')}
                                     </Button>
                                 </Link>
                             </div>
@@ -141,14 +145,14 @@ export default function SavedRecipesPage() {
                         <>
                             <div className="flex items-center justify-between mb-8">
                                 <p className="text-lg text-gray-600">
-                                    <strong className="text-[#4F6815]">{savedRecipes.length}</strong> recipe{savedRecipes.length > 1 ? 's' : ''} saved
+                                    <strong className="text-[#4F6815]">{savedRecipes.length}</strong> {t('savedRecipesCount')}
                                 </p>
                                 <Button 
                                     onClick={deleteAll}
                                     variant="outline"
                                     className="border-red-200 text-red-600 hover:bg-red-50"
                                 >
-                                    Clear All
+                                    {t('savedClearAll')}
                                 </Button>
                             </div>
 
@@ -171,7 +175,7 @@ export default function SavedRecipesPage() {
                                                 className="w-full h-full object-cover opacity-80"
                                             />
                                             <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium">
-                                                {saved.recipe.cuisine || 'AI Generated'}
+                                                {saved.recipe.cuisine || t('savedGenerated')}
                                             </div>
                                         </div>
                                         <div className="p-6">
@@ -180,7 +184,7 @@ export default function SavedRecipesPage() {
                                             </h3>
                                             <div className="flex flex-wrap gap-2 mb-4 text-sm text-gray-600">
                                                 <span>⏱️ {saved.recipe.totalTime || saved.recipe.time}</span>
-                                                <span>👥 {saved.recipe.servings} servings</span>
+                                                <span>👥 {saved.recipe.servings} {t('demoServings')}</span>
                                                 {saved.recipe.difficulty && (
                                                     <span>📊 {saved.recipe.difficulty}</span>
                                                 )}
@@ -188,7 +192,7 @@ export default function SavedRecipesPage() {
                                             <div className="flex gap-2">
                                                 <Link href={`/recipe/${saved.id}`} className="flex-1">
                                                     <Button className="w-full bg-[#4F6815] hover:bg-[#3d5210] text-white">
-                                                        View Recipe
+                                                        {t('savedViewRecipe')}
                                                     </Button>
                                                 </Link>
                                                 <Button
@@ -196,7 +200,7 @@ export default function SavedRecipesPage() {
                                                     variant="outline"
                                                     className="border-red-200 text-red-600 hover:bg-red-50"
                                                 >
-                                                    Delete
+                                                    {t('savedDelete')}
                                                 </Button>
                                             </div>
                                         </div>
@@ -213,7 +217,7 @@ export default function SavedRecipesPage() {
                 <Container>
                     <div className="text-center">
                         <p className="text-sm">
-                            © 2026 RecipeAI. All rights reserved.
+                            © 2026 RecipeAI. {t('footerCopyright')}
                         </p>
                     </div>
                 </Container>

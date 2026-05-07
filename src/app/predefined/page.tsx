@@ -7,8 +7,11 @@ import { Container } from '@/components/shared/Container';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PREDEFINED_RECIPES, CUISINE_TYPES, DIETARY_PRESETS } from '@/lib/predefined-recipes';
+import { useTranslation } from '@/contexts/TranslationContext';
+import { getCuisineName, getDietaryName } from '@/lib/translations';
 
 export default function PredefinedRecipesPage() {
+    const { t, lang } = useTranslation();
     const [selectedCuisine, setSelectedCuisine] = useState('any');
     const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -22,12 +25,10 @@ export default function PredefinedRecipesPage() {
     };
 
     const filteredRecipes = PREDEFINED_RECIPES.filter(recipe => {
-        // Filter by cuisine
         if (selectedCuisine !== 'any' && recipe.cuisine !== selectedCuisine) {
             return false;
         }
 
-        // Filter by dietary
         if (selectedDietary.length > 0) {
             const hasDietaryMatch = selectedDietary.some(diet =>
                 recipe.dietaryTags.some(tag => tag.toLowerCase().includes(diet.toLowerCase()))
@@ -35,7 +36,6 @@ export default function PredefinedRecipesPage() {
             if (!hasDietaryMatch) return false;
         }
 
-        // Filter by search
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             return (
@@ -89,20 +89,19 @@ export default function PredefinedRecipesPage() {
                 <Container>
                     <div className="flex items-center justify-between h-20">
                         <Link href="/" className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4F6815] to-[#75070C] flex items-center justify-center">
-                                <span className="text-white font-bold text-lg">R</span>
-                            </div>
-                            <span className="font-bold text-2xl text-[#4F6815]">RecipeAI</span>
+                            <span className="font-bold text-2xl text-[#4F6815]">
+                                Recipe<span className="text-[#75070C]">AI</span>
+                            </span>
                         </Link>
                         <div className="flex items-center gap-4">
                             <Link href="/saved">
                                 <Button variant="outline" className="border-[#4F6815] text-[#4F6815]">
-                                    My Cookbook
+                                    {t('navMyCookbook')}
                                 </Button>
                             </Link>
                             <Link href="/">
                                 <Button className="bg-[#75070C] hover:bg-[#5a0509] text-white">
-                                    Generate New
+                                    {t('navGenerateNew')}
                                 </Button>
                             </Link>
                         </div>
@@ -118,11 +117,15 @@ export default function PredefinedRecipesPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-center"
                     >
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4F6815]/10 text-[#4F6815] text-sm font-medium mb-4">
+                            <span>📚</span>
+                            <span>{t('predefinedTitle')}</span>
+                        </div>
                         <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-4">
-                            Recipe Library
+                            {t('predefinedTitle')}
                         </h1>
                         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                            Browse our collection of {PREDEFINED_RECIPES.length}+ curated recipes from around the world
+                            {t('predefinedSubtitle')}
                         </p>
                     </motion.div>
                 </Container>
@@ -141,7 +144,7 @@ export default function PredefinedRecipesPage() {
                         <div className="max-w-md mx-auto">
                             <input
                                 type="text"
-                                placeholder="Search recipes or ingredients..."
+                                placeholder={t('predefinedSearch')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full px-6 py-4 rounded-full border-2 border-[#FFEDAB] focus:border-[#4F6815] outline-none text-lg"
@@ -150,7 +153,7 @@ export default function PredefinedRecipesPage() {
 
                         {/* Cuisine Filter */}
                         <div>
-                            <p className="text-lg font-semibold text-gray-700 mb-3">Cuisine</p>
+                            <p className="text-lg font-semibold text-gray-700 mb-3">{t('predefinedCuisine')}</p>
                             <div className="flex flex-wrap gap-2 justify-center">
                                 {CUISINE_TYPES.map((cuisine) => (
                                     <button
@@ -162,7 +165,7 @@ export default function PredefinedRecipesPage() {
                                                 : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-[#4F6815]'
                                         }`}
                                     >
-                                        {cuisine.icon} {cuisine.name}
+                                        {cuisine.icon} {getCuisineName(lang, cuisine.id)}
                                     </button>
                                 ))}
                             </div>
@@ -170,7 +173,7 @@ export default function PredefinedRecipesPage() {
 
                         {/* Dietary Filter */}
                         <div>
-                            <p className="text-lg font-semibold text-gray-700 mb-3">Dietary</p>
+                            <p className="text-lg font-semibold text-gray-700 mb-3">{t('predefinedDietary')}</p>
                             <div className="flex flex-wrap gap-2 justify-center">
                                 {DIETARY_PRESETS.map((preset) => (
                                     <button
@@ -182,7 +185,7 @@ export default function PredefinedRecipesPage() {
                                                 : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-[#75070C]'
                                         }`}
                                     >
-                                        {preset.icon} {preset.name}
+                                        {preset.icon} {getDietaryName(lang, preset.id)}
                                     </button>
                                 ))}
                             </div>
@@ -200,7 +203,7 @@ export default function PredefinedRecipesPage() {
                         variants={staggerContainer}
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                     >
-                        {filteredRecipes.map((recipe, idx) => (
+                        {filteredRecipes.map((recipe) => (
                             <motion.div
                                 key={recipe.id}
                                 variants={fadeInUp}
@@ -225,8 +228,8 @@ export default function PredefinedRecipesPage() {
                                     </h3>
                                     <div className="flex flex-wrap gap-3 text-base text-gray-600 mb-4">
                                         <span>⏱️ {recipe.time}</span>
-                                        <span>👥 {recipe.servings} servings</span>
-                                        <span>🔥 {recipe.calories} cal</span>
+                                        <span>👥 {recipe.servings} {t('demoServings')}</span>
+                                        <span>🔥 {recipe.calories} {t('demoCalories')}</span>
                                     </div>
                                     <div className="flex flex-wrap gap-2 mb-4">
                                         {recipe.dietaryTags.map((tag) => (
@@ -243,11 +246,11 @@ export default function PredefinedRecipesPage() {
                                             onClick={() => saveRecipe(recipe)}
                                             className="flex-1 bg-[#4F6815] hover:bg-[#3d5210] text-white"
                                         >
-                                            Save Recipe
+                                            {t('predefinedSaveRecipe')}
                                         </Button>
                                         <Link href={`/recipe/${recipe.id}`}>
                                             <Button variant="outline" className="border-[#4F6815] text-[#4F6815]">
-                                                View
+                                                {t('predefinedView')}
                                             </Button>
                                         </Link>
                                     </div>
@@ -264,10 +267,10 @@ export default function PredefinedRecipesPage() {
                         >
                             <div className="text-6xl mb-6">🔍</div>
                             <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                                No recipes found
+                                {t('predefinedNoResults')}
                             </h2>
                             <p className="text-gray-600">
-                                Try adjusting your filters or search query
+                                {t('predefinedNoResultsSub')}
                             </p>
                         </motion.div>
                     )}
@@ -279,7 +282,7 @@ export default function PredefinedRecipesPage() {
                 <Container>
                     <div className="text-center">
                         <p className="text-sm">
-                            © 2026 RecipeAI. All rights reserved.
+                            © 2026 RecipeAI. {t('footerCopyright')}
                         </p>
                     </div>
                 </Container>
