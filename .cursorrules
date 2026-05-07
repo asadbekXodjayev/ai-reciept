@@ -1,0 +1,194 @@
+# .cursorrules — RecipeAI Landing Page
+
+## Core Project Info
+- **Project**: RecipeAI SaaS Landing Page (conversion-focused marketing site)
+- **Framework**: Next.js 15 App Router (TypeScript)
+- **Styling**: Tailwind v4 + custom CSS variables
+- **Animations**: Framer Motion v11 (scroll triggers + state transitions)
+- **Forms**: React Hook Form + Zod validation
+- **Components**: shadcn/ui (Button, Card, Input, Badge)
+- **No backend** — All interactions are frontend simulations
+
+## Design System (Must Use)
+
+**Color Palette** — Use these CSS variables (defined in src/app/globals.css):
+- `--color-olive: #4F6815` → Primary brand, headings, buttons
+- `--color-butter: #FFEDAB` → Highlights, accents, hover states
+- `--color-cherry: #75070C` → CTAs, high-energy buttons
+- `--color-ivory: #FFFBF0` → Background, cards, soft backgrounds
+
+**Do not use hex colors directly. Always use CSS variables or Tailwind theme colors.**
+
+**Typography**
+- Headlines: Bold, 1.2–1.5 line-height
+- Body: Regular, 1.6 line-height, 16–18px
+- Font stack: System fonts (Geist Sans, -apple-system, sans-serif)
+
+## Architecture Rules
+
+### 1. Server Components by Default
+- All components are Server Components unless they need interactivity
+- Only use `use client` for:
+  - Framer Motion animations (motion div, useInView, etc.)
+  - Forms (React Hook Form)
+  - useState/useEffect/event listeners
+- Never wrap unnecessarily — keep client boundary at the lowest level
+
+### 2. No Inline Styles
+- Never use `style={{ }}` props
+- Never use inline style attributes
+- Use Tailwind classNames or @apply in CSS modules only
+- All styling goes through globals.css or component-scoped Tailwind
+
+### 3. Data Separation
+- All static data (pricing, testimonials, nav links, features) live in `src/lib/constants.ts`
+- Never hardcode strings in components
+- Import from constants and iterate over arrays
+
+### 4. Animation Consistency
+- All Framer Motion variants come from `src/lib/animations.ts`
+- Reuse: `fadeInUp`, `staggerContainer`, `scrollFadeInUp`, `scaleIn`, etc.
+- Do not create new variants inside components
+- Use `useInView` from Framer Motion for scroll triggers
+
+### 5. Form Validation
+- All forms use Zod schemas from `src/lib/validations.ts`
+- Use React Hook Form + @hookform/resolvers/zod
+- Never validate manually in component logic
+- Error messages come from Zod schema, not hardcoded
+
+### 6. TypeScript
+- Strict mode enabled
+- No `any` types
+- Import types: `type { TypeName } from '...'`
+- Extract types from Zod: `z.infer<typeof schema>`
+
+### 7. Component Structure
+```
+src/components/
+├── sections/          ← Page sections (Navbar, Hero, Demo, etc.)
+├── ui/                ← shadcn/ui components
+└── shared/            ← Reusable utilities (Container, AnimatedSection wrapper)
+```
+
+- Each section gets its own file (e.g., `Hero.tsx`)
+- Sections are imported in `src/app/page.tsx`
+- Keep components small and focused
+
+## Code Patterns to Follow
+
+### Motion Component Pattern
+```typescript
+'use client';
+import { motion } from 'framer-motion';
+import { fadeInUp, staggerContainer } from '@/lib/animations';
+
+export function MySection() {
+  return (
+    <motion.div
+      initial="hidden"
+      whileInView="visible"
+      variants={staggerContainer}
+    >
+      {/* children */}
+    </motion.div>
+  );
+}
+```
+
+### Form Pattern
+```typescript
+'use client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { waitlistSchema } from '@/lib/validations';
+
+export function WaitlistForm() {
+  const form = useForm({
+    resolver: zodResolver(waitlistSchema),
+    defaultValues: { email: '' },
+  });
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      {/* form fields */}
+    </form>
+  );
+}
+```
+
+### Static Data Pattern
+```typescript
+import { PRICING_TIERS, TESTIMONIALS } from '@/lib/constants';
+
+export function PricingSection() {
+  return (
+    <div>
+      {PRICING_TIERS.map((tier) => (
+        <Card key={tier.name}>
+          <h3>{tier.name}</h3>
+          {/* render tier */}
+        </Card>
+      ))}
+    </div>
+  );
+}
+```
+
+## What NOT to Do
+- ❌ Do not use inline styles
+- ❌ Do not add new dependencies without asking
+- ❌ Do not create new Framer Motion variants in components
+- ❌ Do not use `any` TypeScript type
+- ❌ Do not hardcode colors — use CSS variables
+- ❌ Do not hardcode strings — use constants.ts
+- ❌ Do not wrap components in unnecessary client boundaries
+- ❌ Do not use default exports
+- ❌ Do not create nested folders without a reason
+
+## File Structure Reference
+```
+recipe-ai/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx         ← Main landing page (imports all sections)
+│   │   ├── layout.tsx
+│   │   └── globals.css      ← CSS variables, Tailwind config
+│   ├── components/
+│   │   ├── sections/        ← Navbar, Hero, Demo, Features, etc.
+│   │   ├── ui/              ← shadcn/ui components
+│   │   └── shared/          ← Container, AnimatedSection wrapper
+│   └── lib/
+│       ├── constants.ts     ← Pricing, testimonials, nav links, features
+│       ├── animations.ts    ← Framer Motion variants
+│       ├── validations.ts   ← Zod schemas
+│       └── utils.ts         ← Utility functions
+├── PLANNING.md              ← Project overview (paste this into Cursor prompts)
+├── .cursorrules             ← This file
+└── next.config.ts
+```
+
+## Testing & QA Checklist
+- [ ] Responsive on mobile, tablet, desktop
+- [ ] No console errors
+- [ ] Form validation works
+- [ ] Animations smooth (60fps on slow devices)
+- [ ] Colors match palette
+- [ ] Typography hierarchy is clear
+- [ ] CTA buttons stand out
+- [ ] Loading states visible (if applicable)
+
+## Commit Strategy
+- Commit after each complete section
+- Message format: `feat: build [Section Name] component`
+- Example: `feat: build Hero section with Framer Motion`
+
+## When Prompting Cursor
+Always include:
+1. The relevant section from PLANNING.md
+2. Specific constraints: "No inline styles. No new dependencies. Use variants from lib/animations.ts"
+3. Data source: "Use data from lib/constants.ts"
+4. Example of desired output if unclear
+
+Example prompt:
+> Here's my project [paste PLANNING.md]. Now build the Navbar component. It should be sticky, show blur backdrop on scroll, have nav links from constants, and use the fadeIn variant for the link animations. Do not use inline styles. Do not add dependencies.
