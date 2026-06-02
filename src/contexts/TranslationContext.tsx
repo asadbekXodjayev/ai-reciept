@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Language, translations, type Translations } from '@/lib/translations';
 
 interface TranslationContextType {
@@ -24,6 +24,13 @@ function loadLanguage(): Language {
 
 export function TranslationProvider({ children }: { children: ReactNode }) {
     const [lang, setLang] = useState<Language>(loadLanguage);
+
+    // Keep the <html lang> attribute in sync for accessibility & SEO.
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            document.documentElement.lang = lang;
+        }
+    }, [lang]);
 
     // Save language to localStorage when changed
     const changeLang = (newLang: Language) => {

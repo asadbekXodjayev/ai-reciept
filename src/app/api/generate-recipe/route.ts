@@ -3,7 +3,7 @@ import { PREDEFINED_RECIPES, CUISINE_TYPES, DIETARY_PRESETS } from '@/lib/predef
 
 export async function POST(request: Request) {
   try {
-    const { ingredients, dietaryRestrictions, cuisine, usePredefined } = await request.json();
+    const { ingredients, dietaryRestrictions, cuisine, usePredefined, language } = await request.json();
 
     if (!ingredients || ingredients.trim() === '') {
       return NextResponse.json(
@@ -31,7 +31,13 @@ export async function POST(request: Request) {
       return 'en';
     }
 
-    const detectedLanguage = detectLanguage(ingredients);
+    // Prefer the explicit UI language sent by the client; fall back to
+    // detecting it from the ingredient text only when no valid one is given.
+    const SUPPORTED_LANGS = ['en', 'ru', 'uz'] as const;
+    const detectedLanguage: 'en' | 'ru' | 'uz' =
+      typeof language === 'string' && (SUPPORTED_LANGS as readonly string[]).includes(language)
+        ? (language as 'en' | 'ru' | 'uz')
+        : detectLanguage(ingredients);
 
     // Function to calculate ingredient match score
     function calculateIngredientScore(recipeIngredients: string[], userIngredients: string[]): { matchCount: number; extraIngredientCount: number; missingIngredientCount: number; score: number } {
@@ -347,8 +353,32 @@ Faqat bu JSON formatida javob bering (markdown va qo\'shimcha matnsiz):
             throw new Error('Failed to parse AI response');
           }
 
+          // Keep only well-formed recipes so the client never renders
+          // against missing arrays/fields.
+          const rawRecipes = Array.isArray(result.recipes) ? result.recipes : [];
+          const recipes = rawRecipes
+            .filter(
+              (r: unknown): r is Record<string, unknown> =>
+                !!r && typeof r === 'object',
+            )
+            .map((r: Record<string, unknown>) => ({
+              title: typeof r.title === 'string' ? r.title : 'Untitled Recipe',
+              totalTime: typeof r.totalTime === 'string' ? r.totalTime : '—',
+              servings: Number(r.servings) || 2,
+              difficulty: typeof r.difficulty === 'string' ? r.difficulty : 'Easy',
+              ingredients: Array.isArray(r.ingredients) ? r.ingredients.map(String) : [],
+              instructions: Array.isArray(r.instructions) ? r.instructions.map(String) : [],
+              tips: typeof r.tips === 'string' ? r.tips : '',
+              calories: Number(r.calories) || 0,
+              cuisine: typeof r.cuisine === 'string' ? r.cuisine : '',
+            }))
+            .filter(
+              (r: { ingredients: string[]; instructions: string[] }) =>
+                r.ingredients.length > 0 && r.instructions.length > 0,
+            );
+
           return NextResponse.json({
-            recipes: result.recipes || [],
+            recipes,
             isPredefined: false,
             message: 'AI-generated recipes using your ingredients',
           });
@@ -370,7 +400,7 @@ Faqat bu JSON formatida javob bering (markdown va qo\'shimcha matnsiz):
     }
 
     // All API keys failed, return predefined recipes with ingredient matching
-    console.warn('All API keys failed. Returning predefined recipes based on ingredients.');
+    console.warn('All API keys failed. Returning predefined recipes based on ingredients.', lastError);
     
     let recipes = PREDEFINED_RECIPES;
     

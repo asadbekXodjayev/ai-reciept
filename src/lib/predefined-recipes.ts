@@ -845,6 +845,11 @@ export const PREDEFINED_RECIPES: Recipe[] = [
     },
 ];
 
+// Look up a curated recipe by its stable id (e.g. "italian-1").
+export function getRecipeById(id: string): Recipe | undefined {
+    return PREDEFINED_RECIPES.find((r) => r.id === id);
+}
+
 // Dietary restriction presets
 export const DIETARY_PRESETS = [
     { id: 'low-carb', name: 'Low-Carb', icon: '🥗' },

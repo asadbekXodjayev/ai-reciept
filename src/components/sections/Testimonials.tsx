@@ -1,23 +1,27 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { TESTIMONIALS } from '@/lib/constants';
+import { getTestimonials } from '@/lib/content';
 import { staggerContainer, scrollFadeInUp } from '@/lib/animations';
 import { Container } from '@/components/shared/Container';
 import { Card } from '@/components/ui/card';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export function TestimonialsSection() {
+    const { t, lang } = useTranslation();
+    const testimonials = getTestimonials(lang);
+
     return (
-        <section className="py-20 sm:py-28 bg-[#FFFBF0]">
+        <section className="py-20 sm:py-28 bg-[#FFFBF0] dark:bg-background">
             <Container>
-                <motion.div className="text-center mb-16">
-                    <motion.h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                        Loved by Home Cooks Everywhere
-                    </motion.h2>
-                    <motion.p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        See what real users are saying about RecipeAI
-                    </motion.p>
-                </motion.div>
+                <div className="text-center mb-16">
+                    <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 text-balance">
+                        {t('testimonialsTitle')}
+                    </h2>
+                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
+                        {t('testimonialsSubtitle')}
+                    </p>
+                </div>
 
                 <motion.div
                     initial="hidden"
@@ -26,31 +30,34 @@ export function TestimonialsSection() {
                     variants={staggerContainer}
                     className="grid grid-cols-1 md:grid-cols-3 gap-8"
                 >
-                    {TESTIMONIALS.map((testimonial, idx) => (
-                        <motion.div key={idx} variants={scrollFadeInUp}>
-                            <Card className="h-full bg-white border-2 border-[#4F6815]/10 p-6 hover:shadow-lg transition-shadow duration-300">
+                    {testimonials.map((testimonial) => (
+                        <motion.div key={testimonial.id} variants={scrollFadeInUp}>
+                            <Card className="h-full border-2 border-[#4F6815]/10 dark:border-white/10 p-6 hover:shadow-lg transition-shadow duration-300">
                                 {/* Avatar */}
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4F6815] to-[#75070C] flex items-center justify-center">
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4F6815] to-[#75070C] flex items-center justify-center shrink-0"
+                                        aria-hidden="true"
+                                    >
                                         <span className="text-white font-bold text-sm">
                                             {testimonial.avatar}
                                         </span>
                                     </div>
                                     <div>
-                                        <h4 className="font-bold text-gray-900">{testimonial.name}</h4>
-                                        <p className="text-sm text-gray-600">{testimonial.role}</p>
+                                        <h3 className="font-bold text-foreground">{testimonial.name}</h3>
+                                        <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                                     </div>
                                 </div>
 
                                 {/* Quote */}
-                                <p className="text-gray-700 leading-relaxed italic">
-                                    "{testimonial.quote}"
-                                </p>
+                                <blockquote className="text-foreground/80 leading-relaxed italic">
+                                    “{testimonial.quote}”
+                                </blockquote>
 
                                 {/* Stars */}
-                                <div className="mt-4 flex gap-1">
-                                    {[...Array(5)].map((_, i) => (
-                                        <span key={i} className="text-[#FFEDAB] text-lg">
+                                <div className="flex gap-1 text-[#E8B62C]" aria-hidden="true">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                        <span key={i} className="text-lg">
                                             ★
                                         </span>
                                     ))}

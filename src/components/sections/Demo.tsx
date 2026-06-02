@@ -1,16 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Users, BarChart3, Flame, ShoppingCart, ChefHat, Lightbulb, RotateCw, BookmarkPlus, ArrowRight } from 'lucide-react';
 import { staggerContainer, fadeInUp } from '@/lib/animations';
 import { Container } from '@/components/shared/Container';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CUISINE_TYPES, DIETARY_PRESETS } from '@/lib/predefined-recipes';
+import { CUISINE_TYPES, DIETARY_PRESETS, getRecipeById } from '@/lib/predefined-recipes';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { getCuisineName, getDietaryName } from '@/lib/translations';
+import { useToast } from '@/components/providers/ToastProvider';
+import { useSavedRecipes } from '@/hooks/useSavedRecipes';
+import { loadSavedRecipes, type RecipeData } from '@/lib/recipe-storage';
 
 interface Recipe {
+    id?: string;
     title: string;
     totalTime: string;
     servings: number;
@@ -22,8 +28,28 @@ interface Recipe {
     cuisine: string;
 }
 
+const EXAMPLES = ['chicken, rice, vegetables', 'pasta, tomatoes, garlic', 'eggs, cheese, spinach'];
+
+function toRecipeData(recipe: Recipe): RecipeData {
+    return {
+        title: recipe.title,
+        totalTime: recipe.totalTime,
+        servings: recipe.servings,
+        difficulty: recipe.difficulty,
+        cuisine: recipe.cuisine,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions,
+        tips: recipe.tips,
+        calories: recipe.calories,
+    };
+}
+
 export function DemoSection() {
     const { t, lang } = useTranslation();
+    const { toast } = useToast();
+    const { save } = useSavedRecipes();
+    const router = useRouter();
+
     const [step, setStep] = useState<'input' | 'thinking' | 'result' | 'error'>('input');
     const [inputValue, setInputValue] = useState('');
     const [dietaryRestrictions, setDietaryRestrictions] = useState('');
@@ -35,15 +61,16 @@ export function DemoSection() {
     const [isPredefined, setIsPredefined] = useState(false);
 
     const togglePreset = (presetId: string) => {
-        setSelectedPresets(prev => 
-            prev.includes(presetId) 
-                ? prev.filter(id => id !== presetId)
-                : [...prev, presetId]
+        setSelectedPresets((prev) =>
+            prev.includes(presetId) ? prev.filter((id) => id !== presetId) : [...prev, presetId],
         );
     };
 
     const handleSubmit = async () => {
-        if (!inputValue.trim()) return;
+        if (!inputValue.trim()) {
+            toast(t('demoNeedIngredients'), 'info');
+            return;
+        }
 
         setStep('thinking');
         setIsLoading(true);
@@ -54,25 +81,21 @@ export function DemoSection() {
         try {
             const response = await fetch('/api/generate-recipe', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ingredients: inputValue,
                     dietaryRestrictions: combinedDietary || dietaryRestrictions || undefined,
                     cuisine: selectedCuisine,
                     usePredefined: selectedPresets.length > 0,
+                    language: lang,
                 }),
             });
 
             const data = await response.json();
+            if (!response.ok) throw new Error(data.message || t('demoErrorSub'));
 
-            if (!response.ok) {
-                throw new Error(data.message || t('demoErrorSub'));
-            }
-
-            setRecipes(data.recipes || []);
-            setIsPredefined(data.isPredefined || false);
+            setRecipes(Array.isArray(data.recipes) ? data.recipes : []);
+            setIsPredefined(Boolean(data.isPredefined));
             setStep('result');
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : t('demoErrorSub'));
@@ -93,68 +116,71 @@ export function DemoSection() {
         setIsPredefined(false);
     };
 
-    const saveAllRecipes = (recipesToSave: Recipe[]) => {
-        const saved = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
-        recipesToSave.forEach((recipe) => {
-            saved.push({
-                id: `ai-${crypto.randomUUID().slice(0, 8)}`,
-                recipe: {
-                    title: recipe.title,
-                    totalTime: recipe.totalTime,
-                    servings: recipe.servings,
-                    difficulty: recipe.difficulty,
-                    cuisine: recipe.cuisine,
-                    ingredients: recipe.ingredients,
-                    instructions: recipe.instructions,
-                    tips: recipe.tips,
-                    calories: recipe.calories,
-                },
-                savedAt: new Date().toISOString(),
-                isPredefined: false,
-            });
-        });
-        localStorage.setItem('savedRecipes', JSON.stringify(saved));
-        alert(`${recipesToSave.length} ${t('savedRecipesCount')}`);
+    const saveAllRecipes = () => {
+        let added = 0;
+        for (const recipe of recipes) {
+            if (save(toRecipeData(recipe), { isPredefined })) added++;
+        }
+        if (added > 0) {
+            toast(`${added} ${t('toastSavedCount')}`);
+        } else {
+            toast(t('toastAlreadySaved'), 'info');
+        }
+    };
+
+    const viewRecipe = (recipe: Recipe) => {
+        // Curated result already has a stable route.
+        if (recipe.id && getRecipeById(recipe.id)) {
+            router.push(`/recipe/${recipe.id}`);
+            return;
+        }
+        // AI recipe: persist (dedup) then open its detail page.
+        const entry = save(toRecipeData(recipe), { isPredefined });
+        const key = recipe.title.trim().toLowerCase();
+        const id = entry?.id ?? loadSavedRecipes().find((s) => s.recipe.title.trim().toLowerCase() === key)?.id;
+        if (id) router.push(`/recipe/${id}`);
     };
 
     return (
-        <section id="demo" className="py-20 sm:py-28 bg-gradient-to-b from-white via-[#FFFBF0]/50 to-white relative overflow-hidden">
-            {/* Background decoration */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#FFEDAB]/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#4F6815]/5 rounded-full blur-3xl" />
+        <section
+            id="demo"
+            className="relative overflow-hidden bg-gradient-to-b from-white via-[#FFFBF0]/50 to-white py-20 sm:py-28 dark:from-background dark:via-background dark:to-background"
+        >
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute top-0 left-1/4 h-96 w-96 rounded-full bg-[#FFEDAB]/10 blur-3xl dark:bg-[#FFEDAB]/5" />
+                <div className="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-[#4F6815]/5 blur-3xl" />
             </div>
 
             <Container>
-                <div className="text-center mb-16 relative">
+                <div className="relative mb-14 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4F6815]/10 text-[#4F6815] text-sm font-medium mb-4"
+                        className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#4F6815]/10 px-4 py-2 text-sm font-medium text-[#4F6815] dark:bg-[#4F6815]/20 dark:text-[#a3c14f]"
                     >
-                        <span>✨</span>
+                        <span aria-hidden>✨</span>
                         <span>{t('demoTitle')}</span>
                     </motion.div>
-                    <motion.h2 
+                    <motion.h2
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4"
+                        className="mb-4 text-4xl font-bold text-foreground sm:text-5xl"
                     >
                         {t('demoTitle')}
                     </motion.h2>
-                    <motion.p 
+                    <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-xl text-gray-600 max-w-2xl mx-auto"
+                        className="mx-auto max-w-2xl text-xl text-muted-foreground"
                     >
                         {t('demoSubtitle')}
                     </motion.p>
                 </div>
 
-                <div className="max-w-3xl mx-auto relative">
+                <div className="relative mx-auto max-w-3xl">
                     <AnimatePresence mode="wait">
                         {step === 'input' && (
                             <motion.div
@@ -162,211 +188,191 @@ export function DemoSection() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                transition={{ duration: 0.5 }}
+                                transition={{ duration: 0.4 }}
                             >
-                                <div className="bg-white border-2 border-[#4F6815]/20 rounded-2xl p-8 shadow-xl">
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                                        {t('demoWhatToCook')}
-                                    </h3>
+                                <div className="rounded-2xl border-2 border-[#4F6815]/20 bg-card p-6 shadow-xl sm:p-8 dark:border-white/10">
+                                    <h3 className="mb-6 text-2xl font-bold text-foreground">{t('demoWhatToCook')}</h3>
                                     <div className="space-y-5">
-                                        {/* Ingredients Input */}
                                         <div>
-                                            <label className="block text-base font-semibold text-gray-700 mb-2">
+                                            <label htmlFor="demo-ingredients" className="mb-2 block text-base font-semibold text-foreground/90">
                                                 {t('demoIngredients')}
                                             </label>
                                             <Input
+                                                id="demo-ingredients"
                                                 type="text"
                                                 placeholder={t('demoIngredientsPlaceholder')}
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
-                                                onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-                                                className="text-base py-4 px-5 border-2 border-[#FFEDAB] focus:border-[#4F6815] rounded-xl"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSubmit();
+                                                }}
+                                                className="rounded-xl border-2 border-[#FFEDAB] px-5 py-4 text-base focus:border-[#4F6815] dark:border-white/15"
                                                 autoFocus
                                             />
                                         </div>
 
-                                        {/* Cuisine Selection */}
-                                        <div>
-                                            <label className="block text-base font-semibold text-gray-700 mb-3">
-                                                {t('demoCuisine')}
-                                            </label>
+                                        <fieldset>
+                                            <legend className="mb-3 block text-base font-semibold text-foreground/90">{t('demoCuisine')}</legend>
                                             <div className="flex flex-wrap gap-2">
                                                 {CUISINE_TYPES.map((cuisine) => (
                                                     <button
                                                         key={cuisine.id}
+                                                        type="button"
+                                                        aria-pressed={selectedCuisine === cuisine.id}
                                                         onClick={() => setSelectedCuisine(cuisine.id)}
-                                                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                                                        className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                                                             selectedCuisine === cuisine.id
-                                                                ? 'bg-[#4F6815] text-white shadow-lg scale-105'
-                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                                                                ? 'scale-105 bg-[#4F6815] text-white shadow-lg'
+                                                                : 'border border-border bg-muted text-foreground/80 hover:bg-muted/70'
                                                         }`}
                                                     >
-                                                        {cuisine.icon} {getCuisineName(lang, cuisine.id)}
+                                                        <span aria-hidden>{cuisine.icon}</span> {getCuisineName(lang, cuisine.id)}
                                                     </button>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </fieldset>
 
-                                        {/* Dietary Presets */}
-                                        <div>
-                                            <label className="block text-base font-semibold text-gray-700 mb-3">
-                                                {t('demoDietary')}
-                                            </label>
+                                        <fieldset>
+                                            <legend className="mb-3 block text-base font-semibold text-foreground/90">{t('demoDietary')}</legend>
                                             <div className="flex flex-wrap gap-2">
                                                 {DIETARY_PRESETS.map((preset) => (
                                                     <button
                                                         key={preset.id}
+                                                        type="button"
+                                                        aria-pressed={selectedPresets.includes(preset.id)}
                                                         onClick={() => togglePreset(preset.id)}
-                                                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                                                        className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                                                             selectedPresets.includes(preset.id)
-                                                                ? 'bg-[#75070C] text-white shadow-lg scale-105'
-                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                                                                ? 'scale-105 bg-[#75070C] text-white shadow-lg'
+                                                                : 'border border-border bg-muted text-foreground/80 hover:bg-muted/70'
                                                         }`}
                                                     >
-                                                        {preset.icon} {getDietaryName(lang, preset.id)}
+                                                        <span aria-hidden>{preset.icon}</span> {getDietaryName(lang, preset.id)}
                                                     </button>
                                                 ))}
                                             </div>
-                                        </div>
+                                        </fieldset>
 
-                                        {/* Additional Restrictions */}
                                         <div>
-                                            <label className="block text-base font-semibold text-gray-700 mb-2">
+                                            <label htmlFor="demo-other" className="mb-2 block text-base font-semibold text-foreground/90">
                                                 {t('demoOtherRestrictions')}
                                             </label>
                                             <Input
+                                                id="demo-other"
                                                 type="text"
                                                 placeholder={t('demoOtherRestrictionsPlaceholder')}
                                                 value={dietaryRestrictions}
                                                 onChange={(e) => setDietaryRestrictions(e.target.value)}
-                                                className="text-base py-4 px-5 border-2 border-[#FFEDAB] focus:border-[#4F6815] rounded-xl"
+                                                className="rounded-xl border-2 border-[#FFEDAB] px-5 py-4 text-base focus:border-[#4F6815] dark:border-white/15"
                                             />
                                         </div>
 
-                                        {/* Generate Button - Darker */}
-                                        <div className="flex gap-3 pt-4">
+                                        <div className="flex gap-3 pt-2">
                                             <Button
                                                 onClick={handleSubmit}
                                                 disabled={!inputValue.trim() || isLoading}
-                                                className="flex-1 bg-[#5a0509] hover:bg-[#3d0306] text-white font-semibold py-4 text-lg shadow-xl disabled:opacity-50"
+                                                className="flex-1 bg-[#75070C] py-4 text-lg font-semibold text-white shadow-xl hover:bg-[#5a0509] disabled:opacity-50"
                                             >
                                                 {isLoading ? t('demoGenerating') : `🍳 ${t('demoGenerate')}`}
                                             </Button>
                                         </div>
                                     </div>
 
-                                    {/* Example Ingredients */}
-                                    <div className="mt-6 pt-6 border-t border-gray-200">
-                                        <p className="text-sm text-gray-500 mb-3">{t('demoExamples')}</p>
+                                    <div className="mt-6 border-t border-border pt-6">
+                                        <p className="mb-3 text-sm text-muted-foreground">{t('demoExamples')}</p>
                                         <div className="flex flex-wrap gap-2">
-                                            {['chicken, rice, vegetables', 'pasta, tomatoes, garlic', 'eggs, cheese, spinach'].map(
-                                                (example) => (
-                                                    <button
-                                                        key={example}
-                                                        onClick={() => setInputValue(example)}
-                                                        className="text-sm px-4 py-2 rounded-full bg-[#FFEDAB]/50 text-[#4F6815] hover:bg-[#FFEDAB] transition-colors border border-[#4F6815]/20"
-                                                    >
-                                                        {example}
-                                                    </button>
-                                                )
-                                            )}
+                                            {EXAMPLES.map((example) => (
+                                                <button
+                                                    key={example}
+                                                    type="button"
+                                                    onClick={() => setInputValue(example)}
+                                                    className="rounded-full border border-[#4F6815]/20 bg-[#FFEDAB]/50 px-4 py-2 text-sm text-[#4F6815] transition-colors hover:bg-[#FFEDAB] dark:bg-[#FFEDAB]/10 dark:text-[#a3c14f]"
+                                                >
+                                                    {example}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* Thinking Stage */}
                         {step === 'thinking' && (
                             <motion.div
                                 key="thinking"
-                                initial={{ opacity: 0, scale: 0.9 }}
+                                initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                <div className="bg-white border-2 border-[#4F6815]/20 rounded-2xl p-16 text-center shadow-xl">
+                                <div className="rounded-2xl border-2 border-[#4F6815]/20 bg-card p-16 text-center shadow-xl dark:border-white/10">
                                     <motion.div
                                         animate={{ rotate: 360 }}
                                         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                        className="w-20 h-20 border-4 border-[#FFEDAB] border-t-[#4F6815] rounded-full mx-auto mb-6"
+                                        className="mx-auto mb-6 h-20 w-20 rounded-full border-4 border-[#FFEDAB] border-t-[#4F6815]"
                                     />
-                                    <motion.p 
-                                        className="text-xl font-bold text-gray-900 mb-2"
+                                    <motion.p
+                                        className="mb-2 text-xl font-bold text-foreground"
                                         animate={{ opacity: [0.5, 1, 0.5] }}
                                         transition={{ duration: 1.5, repeat: Infinity }}
                                     >
                                         {t('demoThinking')}
                                     </motion.p>
-                                    <p className="text-gray-500">{t('demoThinkingSub')}</p>
+                                    <p className="text-muted-foreground">{t('demoThinkingSub')}</p>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* Error Stage */}
                         {step === 'error' && (
                             <motion.div
                                 key="error"
-                                initial={{ opacity: 0, scale: 0.9 }}
+                                initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-10 text-center shadow-xl">
-                                    <div className="text-5xl mb-4">😕</div>
-                                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                                        {t('demoError')}
-                                    </h3>
-                                    <p className="text-gray-600 mb-6">
-                                        {errorMessage}
-                                    </p>
-                                    <Button
-                                        onClick={resetDemo}
-                                        className="bg-[#5a0509] hover:bg-[#3d0306] text-white"
-                                    >
+                                <div className="rounded-2xl border-2 border-destructive/30 bg-destructive/5 p-10 text-center shadow-xl">
+                                    <div className="mb-4 text-5xl" aria-hidden>😕</div>
+                                    <h3 className="mb-2 text-2xl font-bold text-foreground">{t('demoError')}</h3>
+                                    <p className="mb-6 text-muted-foreground">{errorMessage}</p>
+                                    <Button onClick={resetDemo} className="bg-[#75070C] text-white hover:bg-[#5a0509]">
                                         {t('demoTryAgain')}
                                     </Button>
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* Result Stage */}
                         {step === 'result' && recipes.length > 0 && (
                             <motion.div
                                 key="result"
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                transition={{ duration: 0.5 }}
+                                transition={{ duration: 0.4 }}
                             >
-                                <motion.div variants={staggerContainer} className="space-y-8">
-                                    {/* Header */}
+                                <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="space-y-8">
                                     <motion.div variants={fadeInUp} className="text-center">
-                                        <div className="inline-block px-5 py-2.5 bg-[#4F6815]/10 rounded-full text-[#4F6815] font-semibold mb-4">
+                                        <div className="mb-4 inline-block rounded-full bg-[#4F6815]/10 px-5 py-2.5 font-semibold text-[#4F6815] dark:bg-[#4F6815]/20 dark:text-[#a3c14f]">
                                             {isPredefined ? `📚 ${t('demoCurated')}` : `✨ ${t('demoAI')}`}
                                         </div>
-                                        <p className="text-gray-600">
+                                        <p className="text-muted-foreground">
                                             {recipes.length} {t('demoFound')}
                                         </p>
                                     </motion.div>
 
-                                    {/* Recipe Cards */}
                                     {recipes.map((recipe, recipeIdx) => (
-                                        <motion.div key={recipeIdx} variants={fadeInUp}>
-                                            <div className="bg-white border-2 border-[#4F6815]/20 rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow">
-                                                {/* Recipe Header */}
-                                                <div className="flex items-start justify-between mb-6">
+                                        <motion.div key={recipe.id ?? `${recipe.title}-${recipeIdx}`} variants={fadeInUp}>
+                                            <div className="rounded-2xl border-2 border-[#4F6815]/20 bg-card p-6 shadow-xl transition-shadow hover:shadow-2xl sm:p-8 dark:border-white/10">
+                                                <div className="mb-6 flex items-start justify-between gap-4">
                                                     <div>
-                                                        <h3 className="text-3xl font-bold text-gray-900 mb-3">
-                                                            {recipe.title}
-                                                        </h3>
-                                                        <div className="flex flex-wrap gap-4 text-base text-gray-600">
-                                                            <span className="flex items-center gap-1">⏱️ {recipe.totalTime}</span>
-                                                            <span className="flex items-center gap-1">👥 {recipe.servings} {t('demoServings')}</span>
-                                                            <span className="flex items-center gap-1">📊 {recipe.difficulty}</span>
-                                                            <span className="flex items-center gap-1">🔥 {recipe.calories} {t('demoCalories')}</span>
+                                                        <h3 className="mb-3 text-2xl font-bold text-foreground sm:text-3xl">{recipe.title}</h3>
+                                                        <div className="flex flex-wrap gap-3 text-base text-muted-foreground">
+                                                            <span className="flex items-center gap-1.5"><Clock className="size-4" /> {recipe.totalTime}</span>
+                                                            <span className="flex items-center gap-1.5"><Users className="size-4" /> {recipe.servings} {t('demoServings')}</span>
+                                                            <span className="flex items-center gap-1.5"><BarChart3 className="size-4" /> {recipe.difficulty}</span>
+                                                            <span className="flex items-center gap-1.5"><Flame className="size-4" /> {recipe.calories} {t('demoCalories')}</span>
                                                             {recipe.cuisine && (
-                                                                <span className="bg-[#4F6815]/10 text-[#4F6815] px-3 py-1 rounded-full font-medium">
+                                                                <span className="rounded-full bg-[#4F6815]/10 px-3 py-1 font-medium text-[#4F6815] dark:bg-[#4F6815]/20 dark:text-[#a3c14f]">
                                                                     {recipe.cuisine}
                                                                 </span>
                                                             )}
@@ -374,34 +380,32 @@ export function DemoSection() {
                                                     </div>
                                                 </div>
 
-                                                <hr className="my-6 border-gray-200" />
+                                                <hr className="my-6 border-border" />
 
-                                                {/* Ingredients */}
                                                 <div className="mb-6">
-                                                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                        <span className="text-2xl">🛒</span> {t('demoIngredientsTitle')}
+                                                    <h4 className="mb-4 flex items-center gap-2 text-xl font-bold text-foreground">
+                                                        <ShoppingCart className="size-5 text-[#4F6815] dark:text-[#a3c14f]" /> {t('demoIngredientsTitle')}
                                                     </h4>
-                                                    <ul className="space-y-3">
-                                                        {recipe.ingredients.map((ingredient, idx) => (
-                                                            <li key={idx} className="flex items-start gap-3 text-gray-700">
-                                                                <span className="text-[#4F6815] font-bold mt-0.5">✓</span>
+                                                    <ul className="space-y-2.5">
+                                                        {(recipe.ingredients ?? []).map((ingredient, idx) => (
+                                                            <li key={idx} className="flex items-start gap-3 text-foreground/80">
+                                                                <span className="mt-0.5 font-bold text-[#4F6815] dark:text-[#a3c14f]" aria-hidden>✓</span>
                                                                 <span>{ingredient}</span>
                                                             </li>
                                                         ))}
                                                     </ul>
                                                 </div>
 
-                                                <hr className="my-6 border-gray-200" />
+                                                <hr className="my-6 border-border" />
 
-                                                {/* Instructions */}
                                                 <div className="mb-6">
-                                                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                                        <span className="text-2xl">👨‍🍳</span> {t('demoInstructionsTitle')}
+                                                    <h4 className="mb-4 flex items-center gap-2 text-xl font-bold text-foreground">
+                                                        <ChefHat className="size-5 text-[#4F6815] dark:text-[#a3c14f]" /> {t('demoInstructionsTitle')}
                                                     </h4>
                                                     <ol className="space-y-4">
-                                                        {recipe.instructions.map((instruction, idx) => (
-                                                            <li key={idx} className="flex gap-4 text-gray-700">
-                                                                <span className="font-bold text-[#4F6815] min-w-8 flex-shrink-0 bg-[#4F6815]/5 rounded-full w-8 h-8 flex items-center justify-center">
+                                                        {(recipe.instructions ?? []).map((instruction, idx) => (
+                                                            <li key={idx} className="flex gap-4 text-foreground/80">
+                                                                <span className="flex size-8 flex-shrink-0 items-center justify-center rounded-full bg-[#4F6815]/10 font-bold text-[#4F6815] dark:bg-[#4F6815]/20 dark:text-[#a3c14f]">
                                                                     {idx + 1}
                                                                 </span>
                                                                 <span className="leading-relaxed">{instruction}</span>
@@ -410,58 +414,53 @@ export function DemoSection() {
                                                     </ol>
                                                 </div>
 
-                                                {/* Tips */}
                                                 {recipe.tips && (
-                                                    <div className="bg-[#FFEDAB]/20 border-2 border-[#FFEDAB] rounded-xl p-5">
-                                                        <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                                            <span>💡</span> {t('demoProTip')}
+                                                    <div className="rounded-xl border-2 border-[#FFEDAB] bg-[#FFEDAB]/20 p-5 dark:bg-[#FFEDAB]/10">
+                                                        <h4 className="mb-2 flex items-center gap-2 font-bold text-foreground">
+                                                            <Lightbulb className="size-5 text-[#75070C] dark:text-[#e06b70]" /> {t('demoProTip')}
                                                         </h4>
-                                                        <p className="text-gray-700">{recipe.tips}</p>
+                                                        <p className="text-foreground/80">{recipe.tips}</p>
                                                     </div>
                                                 )}
+
+                                                <div className="mt-6 flex justify-end">
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={() => viewRecipe(recipe)}
+                                                        className="border-2 border-[#4F6815] text-[#4F6815] hover:bg-[#4F6815]/5 dark:border-[#a3c14f]/60 dark:text-[#a3c14f]"
+                                                    >
+                                                        {t('demoViewRecipe')} <ArrowRight className="size-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </motion.div>
                                     ))}
 
-                                    {/* Action Buttons */}
-                                    <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-3">
+                                    <motion.div variants={fadeInUp} className="flex flex-col gap-3 sm:flex-row">
                                         <Button
                                             onClick={resetDemo}
                                             variant="outline"
-                                            className="flex-1 border-2 border-[#4F6815] text-[#4F6815] hover:bg-[#4F6815]/5 py-4 text-lg font-semibold"
+                                            className="flex-1 border-2 border-[#4F6815] py-4 text-lg font-semibold text-[#4F6815] hover:bg-[#4F6815]/5 dark:border-[#a3c14f]/60 dark:text-[#a3c14f]"
                                         >
-                                            🔄 {t('demoGenerateNew')}
+                                            <RotateCw className="size-5" /> {t('demoGenerateNew')}
                                         </Button>
-                                        <Button 
-                                            onClick={() => saveAllRecipes(recipes)}
-                                            className="flex-1 bg-[#5a0509] hover:bg-[#3d0306] text-white font-semibold py-4 text-lg shadow-xl"
+                                        <Button
+                                            onClick={saveAllRecipes}
+                                            className="flex-1 bg-[#75070C] py-4 text-lg font-semibold text-white shadow-xl hover:bg-[#5a0509]"
                                         >
-                                            💾 {t('demoSaveAll')}
+                                            <BookmarkPlus className="size-5" /> {t('demoSaveAll')}
                                         </Button>
                                     </motion.div>
                                 </motion.div>
                             </motion.div>
                         )}
 
-                        {/* No Results */}
                         {step === 'result' && recipes.length === 0 && (
-                            <motion.div
-                                key="no-results"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="text-center py-16"
-                            >
-                                <div className="text-6xl mb-6">🤔</div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                                    {t('demoNoResults')}
-                                </h3>
-                                <p className="text-gray-600 mb-6">
-                                    {t('demoNoResultsSub')}
-                                </p>
-                                <Button
-                                    onClick={resetDemo}
-                                    className="bg-[#5a0509] hover:bg-[#3d0306] text-white"
-                                >
+                            <motion.div key="no-results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-16 text-center">
+                                <div className="mb-6 text-6xl" aria-hidden>🤔</div>
+                                <h3 className="mb-3 text-2xl font-bold text-foreground">{t('demoNoResults')}</h3>
+                                <p className="mb-6 text-muted-foreground">{t('demoNoResultsSub')}</p>
+                                <Button onClick={resetDemo} className="bg-[#75070C] text-white hover:bg-[#5a0509]">
                                     {t('demoTryAgain')}
                                 </Button>
                             </motion.div>

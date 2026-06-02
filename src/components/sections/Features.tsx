@@ -1,22 +1,26 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { FEATURES } from '@/lib/constants';
+import { getFeatures } from '@/lib/content';
 import { staggerContainer, scrollFadeInUp } from '@/lib/animations';
 import { Container } from '@/components/shared/Container';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 export function FeaturesSection() {
+    const { t, lang } = useTranslation();
+    const features = getFeatures(lang);
+
     return (
-        <section id="features" className="py-20 sm:py-28 bg-white">
+        <section id="features" className="py-20 sm:py-28 bg-card">
             <Container>
-                <motion.div className="text-center mb-16">
-                    <motion.h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                        How It Works
-                    </motion.h2>
-                    <motion.p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Four simple steps from empty fridge to restaurant-quality dinner
-                    </motion.p>
-                </motion.div>
+                <div className="text-center mb-16">
+                    <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 text-balance">
+                        {t('featuresTitle')}
+                    </h2>
+                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
+                        {t('featuresSubtitle')}
+                    </p>
+                </div>
 
                 <motion.div
                     initial="hidden"
@@ -25,17 +29,17 @@ export function FeaturesSection() {
                     variants={staggerContainer}
                     className="grid grid-cols-1 md:grid-cols-2 gap-8"
                 >
-                    {FEATURES.map((feature, idx) => (
+                    {features.map((feature) => (
                         <motion.div
-                            key={idx}
+                            key={feature.id}
                             variants={scrollFadeInUp}
-                            className="bg-gradient-to-br from-[#FFFBF0] to-white border border-[#4F6815]/10 rounded-xl p-8 hover:shadow-lg transition-shadow duration-300"
+                            className="bg-gradient-to-br from-[#FFFBF0] to-white dark:from-white/[0.03] dark:to-transparent border border-[#4F6815]/10 dark:border-white/10 rounded-xl p-8 hover:shadow-lg transition-shadow duration-300"
                         >
-                            <div className="text-4xl mb-4">{feature.icon}</div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-3">
+                            <div className="text-4xl mb-4" aria-hidden="true">{feature.icon}</div>
+                            <h3 className="text-xl font-bold text-foreground mb-3">
                                 {feature.title}
                             </h3>
-                            <p className="text-gray-600 leading-relaxed">
+                            <p className="text-muted-foreground leading-relaxed">
                                 {feature.description}
                             </p>
                         </motion.div>

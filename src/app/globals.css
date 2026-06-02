@@ -99,24 +99,27 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Warm Mediterranean dark palette (not pure gray) */
+  --background: oklch(0.19 0.012 75);
+  --foreground: oklch(0.96 0.012 90);
+  --card: oklch(0.23 0.013 75);
+  --card-foreground: oklch(0.96 0.012 90);
+  --popover: oklch(0.23 0.013 75);
+  --popover-foreground: oklch(0.96 0.012 90);
+  /* Lighter olive so brand reads on dark */
+  --primary: oklch(0.74 0.13 124);
+  --primary-foreground: oklch(0.19 0.012 75);
+  --secondary: oklch(0.3 0.03 90);
+  --secondary-foreground: oklch(0.92 0.06 95);
+  --muted: oklch(0.27 0.012 75);
+  --muted-foreground: oklch(0.74 0.02 85);
+  /* Lighter cherry for dark surfaces */
+  --accent: oklch(0.62 0.17 18);
+  --accent-foreground: oklch(0.97 0.01 90);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.74 0.13 124);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -164,5 +167,36 @@
     h2 { font-size: 2rem; }
     h3 { font-size: 1.5rem; }
     h4 { font-size: 1.25rem; }
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Hide everything except the recipe article when printing a recipe */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-print-recipe],
+  [data-print-recipe] * {
+    visibility: visible;
+  }
+  [data-print-recipe] {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+  }
+  [data-no-print] {
+    display: none !important;
   }
 }
